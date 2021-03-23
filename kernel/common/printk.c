@@ -111,17 +111,37 @@ static int printk_write_num(char **out, long long i, int base, int sign,
 		return prints(out, print_buf, width, flags);
 	}
 
-	if (sign && base == 10 && i < 0) {
+	if (sign && base == 10 && i < 0) {//处理有符号的负数
 		neg = 1;
 		u = -i;
 	}
 	
-
+	/*
+	Fuction: 进制转换
+	base example:2 8 10 16 
 	// TODO: fill your code here
 	// store the digitals in the buffer `print_buf`:
 	// 1. the last postion of this buffer must be '\0'
 	// 2. the format is only decided by `base` and `letbase` here
-	
+	*/
+	s = print_buf+PRINT_BUF_LEN;//定位指针到末尾
+	*s = '\0';
+
+	while(u > 0){
+		s--;//指针 从最后一位往前转换
+		t = u % base;
+		if(t<9){ //非hex
+			*s = t + '0'//ascii
+		} else{//hex
+			if(letbase>0){//大小写
+				*s = t - 10 +'A'; 
+			}else{
+				*s = t -10 + 'a';
+			}
+		}
+		u /= base;
+	}
+
 	if (neg) {
 		if (width && (flags & PAD_ZERO)) {
 			simple_outputchar(out, '-');
