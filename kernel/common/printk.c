@@ -126,21 +126,22 @@ static int printk_write_num(char **out, long long i, int base, int sign,
 	*/
 	s = print_buf+PRINT_BUF_LEN;//定位指针到末尾
 	*s = '\0';
-
+	
 	while(u > 0){
 		s--;//指针 从最后一位往前转换
 		t = u % base;
 		if(t<9){ //非hex
-			*s = t + '0'//ascii
+			*s = t + '0';//ascii
 		} else{//hex
-			if(letbase>0){//大小写
-				*s = t - 10 +'A'; 
+			if(letbase){//大小写
+				*s = t - 10 +'a'; 
 			}else{
-				*s = t -10 + 'a';
+				*s = t -10 + 'A';
 			}
 		}
 		u /= base;
 	}
+
 
 	if (neg) {
 		if (width && (flags & PAD_ZERO)) {
