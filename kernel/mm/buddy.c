@@ -8,18 +8,18 @@
  * The layout of a phys_mem_pool:
  * | page_metadata are (an array of struct page) | alignment pad | usable memory |
  *
- * The usable memory: [pool_start_addr, pool_start_addr + pool_mem_size).
+ * The usable memory: [pool_start_addr, pool_start_addr + pool_mem_size).//所用内存范围
  */
 void init_buddy(struct phys_mem_pool *pool, struct page *start_page,
-		vaddr_t start_addr, u64 page_num)
+		vaddr_t start_addr, u64 page_num)//poll 内存池 startpage 起始页的页指针 startaddr 起始地址 pagenum 页数
 {
-	int order;
-	int page_idx;
-	struct page *page;
+	int order;//阶
+	int page_idx;//index
+	struct page *page;//页
 
-	/* Init the physical memory pool. */
+	/* Init the physical memory pool. 初始化物理内存池*/
 	pool->pool_start_addr = start_addr;
-	pool->page_metadata = start_page;
+	pool->page_metadata = start_page;//元数据
 	pool->pool_mem_size = page_num * BUDDY_PAGE_SIZE;
 	/* This field is for unit test only. */
 	pool->pool_phys_page_num = page_num;
@@ -35,9 +35,9 @@ void init_buddy(struct phys_mem_pool *pool, struct page *start_page,
 
 	/* Init the page_metadata area. */
 	for (page_idx = 0; page_idx < page_num; ++page_idx) {
-		page = start_page + page_idx;
-		page->allocated = 1;
-		page->order = 0;
+		page = start_page + page_idx;//指针运算
+		page->allocated = 1;//set 1
+		page->order = 0;//set0
 	}
 
 	/* Put each physical memory page into the free lists. */
@@ -48,7 +48,7 @@ void init_buddy(struct phys_mem_pool *pool, struct page *start_page,
 }
 
 static struct page *get_buddy_chunk(struct phys_mem_pool *pool,
-				    struct page *chunk)
+				    struct page *chunk)//得到兄弟chunk 伙伴索引
 {
 	u64 chunk_addr;
 	u64 buddy_chunk_addr;
@@ -59,11 +59,11 @@ static struct page *get_buddy_chunk(struct phys_mem_pool *pool,
 	order = chunk->order;
 	/*
 	 * Calculate the address of the buddy chunk according to the address
-	 * relationship between buddies.
+	 * relationship between buddies.//计算得到有兄弟关系的另一个块
 	 */
 #define BUDDY_PAGE_SIZE_ORDER (12)
 	buddy_chunk_addr = chunk_addr ^
-	    (1UL << (order + BUDDY_PAGE_SIZE_ORDER));
+	    (1UL << (order + BUDDY_PAGE_SIZE_ORDER));//无符号长整数
 
 	/* Check whether the buddy_chunk_addr belongs to pool. */
 	if ((buddy_chunk_addr < pool->pool_start_addr) ||
@@ -87,11 +87,41 @@ static struct page *get_buddy_chunk(struct phys_mem_pool *pool,
  * smaller sub-pages.
  */
 static struct page *split_page(struct phys_mem_pool *pool, u64 order,
-			       struct page *page)
+			       struct page *page)//order 为目标order page为被分裂的page
 {
 	// <lab2>
-	struct page *split_page = NULL;
-	return split_page;
+
+	/* Deal with error */
+	if(page->allocated == 1 || page->order <=0 || page->order <= order){
+		return page;//can not be splitted
+	}
+
+	/* Deal with recurse */
+	if(page->order - order > 1){//目标分割需要多次 递归调用
+		page = split_page(pool, order+1, page);//一次分割只减一半
+	}
+
+	/* Init data */
+	int new_order = order - 1;//2次幂-1即为减半
+	struct free_list* origin_order_free_list = &(pool->free_lists[page->order]);
+	struct free_list* splite_order_free_list = &(pool->free_lists[new_order]);
+
+	/* Deal with origin page */
+	page->order = new_order;
+	origin_order_free_list->nr_free -- ;
+	list_del(&page->node);//删除原节点
+
+	/* Deal with new splited buddy page */
+	struct page *split_buddy_page = get_buddy_chunk(pool, page);//建立索引
+	split_buddy_page->order = new_order;//update order
+	split_buddy_page->allocated = page->allocated;//update allocated (always 0)
+
+	/* Deal with two budder pages' node */
+	splite_order_free_list->nr_free += 2;
+	list_add(&page->node, &splite_order_free_list->free_list);
+	list_add(&split_buddy_page->node, &splite_order_free_list->free_list);
+	
+	return split_buddy_page;
 	// </lab2>
 }
 
