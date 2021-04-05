@@ -1,6 +1,3 @@
-# Me
-A OSLab from SJTU, this repository is set to record the code task.
-This  origin project  is forked from https://gitee.com/ipads-lab/chcore-lab
 # ChCore
 
 This is the repository of ChCore labs in SE315, 2020 Spring.
