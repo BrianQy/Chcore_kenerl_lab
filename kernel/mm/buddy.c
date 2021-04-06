@@ -198,8 +198,8 @@ static struct page *merge_page(struct phys_mem_pool *pool, struct page *page)
 		return NULL;
 	}
 	/* Deal with the process */
-	struct list_head *origin_free_list = &(pool->free_lists[page->order]);//原始位置
-	struct list_head *merge_free_list = &(pool->free_lists[page->order + 1]);//目标位置  
+	struct free_list* origin_free_list = &(pool->free_lists[page->order]);//原始位置
+	struct free_list* merge_free_list = &(pool->free_lists[page->order + 1]);//目标位置  
 
 	origin_free_list->nr_free -= 2;//减掉自身和buddy
 	list_del(&page->node);
@@ -210,7 +210,7 @@ static struct page *merge_page(struct phys_mem_pool *pool, struct page *page)
 	/* Init new merge one */
 	merged_page->order = page->order + 1;
 	merged_page->allocated = 0;
-	mergedpage->node = merge_free_list;
+	merged_page->node = merge_free_list;
 	list_add(&merged_page->node, &merge_free_list->free_list);
 
 	/* Deal with the recurse */
@@ -229,8 +229,8 @@ void buddy_free_pages(struct phys_mem_pool *pool, struct page *page)
 {
 	// <lab2>
 	page->allocated = 0;
-	list_add(&page->node, &(pool->free_lists[page->order]->freelist));
-	pool->free_lists[page->order]->nr_free ++;
+	list_add(&page->node, &(pool->free_lists[page->order].free_list));
+	pool->free_lists[page->order].nr_free ++;
 	merge_page(pool,page);
 	// </lab2>
 }
