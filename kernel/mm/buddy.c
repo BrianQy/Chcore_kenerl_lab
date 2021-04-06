@@ -98,17 +98,17 @@ static struct page *split_page(struct phys_mem_pool *pool, u64 order,
 
 	/* Deal with recurse */
 	if(page->order - order > 1){//目标分割需要多次 递归调用
-		page = split_page(pool, order+1, page);//一次分割只减一半
+		page = split_page(pool, order + 1, page);//一次分割只减一半
 	}
 
 	/* Init data */
-	int new_order = order - 1;//2次幂-1即为减半
+	int new_order = page->order - 1;//page的order不是最终order 2次幂-1即为减半
 	struct free_list* origin_order_free_list = &(pool->free_lists[page->order]);
-	struct free_list* splite_order_free_list = &(pool->free_lists[new_order]);
+	struct free_list* split_order_free_list = &(pool->free_lists[new_order]);
 
 	/* Deal with origin page */
 	page->order = new_order;
-	origin_order_free_list->nr_free -- ;
+	origin_order_free_list->nr_free-- ;
 	list_del(&page->node);//删除原节点
 
 	/* Deal with new splited buddy page */
@@ -117,11 +117,11 @@ static struct page *split_page(struct phys_mem_pool *pool, u64 order,
 	split_buddy_page->allocated = page->allocated;//update allocated (always 0)
 
 	/* Deal with two budder pages' node */
-	splite_order_free_list->nr_free += 2;
-	list_add(&page->node, &splite_order_free_list->free_list);
-	list_add(&split_buddy_page->node, &splite_order_free_list->free_list);
+	split_order_free_list->nr_free += 2;
+	list_add(&page->node, &split_order_free_list->free_list);
+	list_add(&split_buddy_page->node, &split_order_free_list->free_list);
 	
-	return split_buddy_page;
+	return page;
 	// </lab2>
 }
 
@@ -143,21 +143,23 @@ struct page *buddy_get_pages(struct phys_mem_pool *pool, u64 order)
 
 	/* Init page */
 	struct page *page = NULL;
-	page->allocated = 0;
+
 	page->order = order;
 
 	//存在合适的块 直接分配
 	if(pool->free_lists[order].nr_free != 0) {
 		struct list_head *list_node = pool->free_lists[order].free_list.next;//指针指向所需的块的下一个
 		page = list_entry(list_node,struct page,node); //使用pointer应用到对象（page）
+		page->allocated = 1;
+		
 		pool->free_lists[order].nr_free --;//number参数-1
 		list_del(list_node);//释放节点
 	}else {//不存在合适的块 需要由更大的分裂
-		u64 i = 0;
-		while(pool->free_lists[order+i].nr_free <=0 && (order+i) > BUDDY_MAX_ORDER ){//找更大的存在freeblock的order
-			i++;	
+		u64 big_order = order ;
+		while(pool->free_lists[big_order].nr_free <=0 && big_order > BUDDY_MAX_ORDER ){//找更大的存在freeblock的order
+			big_order ++;
 		}
-		u64 big_order = order + i;
+		
 		if( big_order >= BUDDY_MAX_ORDER ){
 			return NULL;
 		}
@@ -165,11 +167,19 @@ struct page *buddy_get_pages(struct phys_mem_pool *pool, u64 order)
 		struct page *splited_page = NULL;
 		struct list_head *list_node = pool->free_lists[big_order].free_list.next;//指针指向所需的块的下一个
 		splited_page = list_entry(list_node,struct page,node); //使用pointer应用到对象（page）
+		/*
 		pool->free_lists[big_order].nr_free --;//number参数-1
-		list_del(list_node);//释放节点
+		!error! This step is already done in split_page
+		*/
 
 		/* Split the temp page to get the one we actually need */
 		page = split_page(pool,order,splited_page);
+
+		struct free_list *page_order_free_list = &(pool->free_lists[page->order]);
+		page_order_free_list->nr_free--;//占用一个
+		page->allocated = 1;
+
+		list_del(list_node);//释放节点
 	}
 	return page;
 	// </lab2>
@@ -195,7 +205,7 @@ static struct page *merge_page(struct phys_mem_pool *pool, struct page *page)
 		return page;
 	}
 	if(buddy_page->allocated || buddy_page == NULL || buddy_page->order != page->order){//如果兄弟节点之间order不同 或 找不到buddy
-		return NULL;
+		return page;
 	}
 	/* Deal with the process */
 	struct free_list* origin_free_list = &(pool->free_lists[page->order]);//原始位置
@@ -205,16 +215,18 @@ static struct page *merge_page(struct phys_mem_pool *pool, struct page *page)
 	list_del(&page->node);
 	list_del(&buddy_page->node);
 
-	merge_free_list->nr_free ++;
+	merge_free_list->nr_free++;
 
+
+	page->order++;
 	/* Init new merge one */
-	merged_page->order = page->order + 1;
-	merged_page->allocated = 0;
+	//merged_page->order = page->order + 1;
+	//merged_page->allocated = 0;
 	//merged_page->node = merge_free_list;
-	list_add(&merged_page->node, &merge_free_list->free_list);
+	list_add(&page->node, &merge_free_list->free_list);
 
 	/* Deal with the recurse */
-	return merge_page(pool,merged_page);
+	return merge_page(pool,page);
 	// </lab2>
 }
 
@@ -230,8 +242,8 @@ void buddy_free_pages(struct phys_mem_pool *pool, struct page *page)
 	// <lab2>
 	page->allocated = 0;
 	list_add(&page->node, &(pool->free_lists[page->order].free_list));
-	pool->free_lists[page->order].nr_free ++;
-	merge_page(pool,page);
+	pool->free_lists[page->order].nr_free++;
+	page = merge_page(pool,page);
 	// </lab2>
 }
 
