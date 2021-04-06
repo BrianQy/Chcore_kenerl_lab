@@ -210,7 +210,7 @@ static struct page *merge_page(struct phys_mem_pool *pool, struct page *page)
 	/* Init new merge one */
 	merged_page->order = page->order + 1;
 	merged_page->allocated = 0;
-	merged_page->node = merge_free_list;
+	//merged_page->node = merge_free_list;
 	list_add(&merged_page->node, &merge_free_list->free_list);
 
 	/* Deal with the recurse */
