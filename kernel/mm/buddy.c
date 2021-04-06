@@ -189,7 +189,32 @@ static struct page *merge_page(struct phys_mem_pool *pool, struct page *page)
 	// <lab2>
 
 	struct page *merge_page = NULL;
-	return merge_page;
+	struct page *buddy_page = get_buddy_chunk(pool,page);
+	/* Deal with Error */
+	if(page->order >= BUDDY_MAX_ORDER - 1 || page->allocated ){
+		return page;
+	}
+	if(buddy_page->allocated || buddy_page == NULL || buddy_page->order != page->order){//如果兄弟节点之间order不同 或 找不到buddy
+		return NULL;
+	}
+	/* Deal with the process */
+	struct list_head origin_free_list = &(pool->free_lists[page->order]);//原始位置
+	struct list_head merge_free_list = &(pool->free_lists[page->order + 1]);//目标位置  
+
+	origin_free_list->nr_free -= 2;//减掉自身和buddy
+	list_del(page->node);
+	list_del(buddy_page->node);
+
+	merge_free_list->nr_free ++;
+
+	/* Init new merge one */
+	merge_page->order = page->order + 1;
+	merge_page->allocated = 0;
+	merge_page->node = merge_free_list;
+	list_add(&merge_page->node, &merge_free_list->free_list);
+
+	/* Deal with the recurse */
+	return merge_page(pool,merge_page);
 	// </lab2>
 }
 
