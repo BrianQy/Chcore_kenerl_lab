@@ -228,7 +228,10 @@ static struct page *merge_page(struct phys_mem_pool *pool, struct page *page)
 void buddy_free_pages(struct phys_mem_pool *pool, struct page *page)
 {
 	// <lab2>
-
+	page->allocated = 0;
+	list_add(&page->node, &(pool->free_lists[page->order]->freelist));
+	pool->free_lists[page->order]->nr_free ++;
+	merge_page(pool,page);
 	// </lab2>
 }
 
