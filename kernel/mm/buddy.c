@@ -135,9 +135,42 @@ static struct page *split_page(struct phys_mem_pool *pool, u64 order,
  */
 struct page *buddy_get_pages(struct phys_mem_pool *pool, u64 order)
 {
-	// <lab2>
-	struct page *page = NULL;
+	// <lab2> 从空闲链表里拿到空闲的块 
+	/* Deal with error situation */
+	if(order >= BUDDY_MAX_ORDER ){
+		return NULL;
+	}
 
+	/* Init page */
+	struct page *page = NULL;
+	page->allocated = 0;
+	page->order = order;
+
+	//存在合适的块 直接分配
+	if(pool->free_lists[order].nr_free != 0) {
+		struct list_head *list_node = pool->free_lists[order]->free_list.next;//指针指向所需的块的下一个
+		page = list_entry(list_node,struct page,node); //使用pointer应用到对象（page）
+		pool->free_lists[order]->nr_free --;//number参数-1
+		list_del(list_node);//释放节点
+	}else {//不存在合适的块 需要由更大的分裂
+		u64 i = 0;
+		while(pool->free_lists[order+i].nr_free <=0 && (order+i) > BUDDY_MAX_ORDER ){//找更大的存在freeblock的order
+			i++;	
+		}
+		u64 big_order = order + i;
+		if( big_order >= BUDDY_MAX_ORDER ){
+			return NULL;
+		}
+		/* Get the mem we need to create a temp page*/
+		struct page *splited_page = NULL;
+		struct list_head *list_node = pool->free_lists[big_order]->free_list.next;//指针指向所需的块的下一个
+		splited_page = list_entry(list_node,struct page,node); //使用pointer应用到对象（page）
+		pool->free_lists[big_order]->nr_free --;//number参数-1
+		list_del(list_node);//释放节点
+
+		/* Split the temp page to get the one we actually need */
+		page = split_page(pool,order,splited_page);
+	}
 	return page;
 	// </lab2>
 }
