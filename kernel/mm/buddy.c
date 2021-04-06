@@ -148,9 +148,9 @@ struct page *buddy_get_pages(struct phys_mem_pool *pool, u64 order)
 
 	//存在合适的块 直接分配
 	if(pool->free_lists[order].nr_free != 0) {
-		struct list_head *list_node = pool->free_lists[order]->free_list.next;//指针指向所需的块的下一个
+		struct list_head *list_node = pool->free_lists[order].free_list.next;//指针指向所需的块的下一个
 		page = list_entry(list_node,struct page,node); //使用pointer应用到对象（page）
-		pool->free_lists[order]->nr_free --;//number参数-1
+		pool->free_lists[order].nr_free --;//number参数-1
 		list_del(list_node);//释放节点
 	}else {//不存在合适的块 需要由更大的分裂
 		u64 i = 0;
@@ -163,9 +163,9 @@ struct page *buddy_get_pages(struct phys_mem_pool *pool, u64 order)
 		}
 		/* Get the mem we need to create a temp page*/
 		struct page *splited_page = NULL;
-		struct list_head *list_node = pool->free_lists[big_order]->free_list.next;//指针指向所需的块的下一个
+		struct list_head *list_node = pool->free_lists[big_order].free_list.next;//指针指向所需的块的下一个
 		splited_page = list_entry(list_node,struct page,node); //使用pointer应用到对象（page）
-		pool->free_lists[big_order]->nr_free --;//number参数-1
+		pool->free_lists[big_order].nr_free --;//number参数-1
 		list_del(list_node);//释放节点
 
 		/* Split the temp page to get the one we actually need */
@@ -188,7 +188,7 @@ static struct page *merge_page(struct phys_mem_pool *pool, struct page *page)
 {
 	// <lab2>
 
-	struct page *merge_page = NULL;
+	struct page *merged_page = NULL;
 	struct page *buddy_page = get_buddy_chunk(pool,page);
 	/* Deal with Error */
 	if(page->order >= BUDDY_MAX_ORDER - 1 || page->allocated ){
@@ -198,23 +198,23 @@ static struct page *merge_page(struct phys_mem_pool *pool, struct page *page)
 		return NULL;
 	}
 	/* Deal with the process */
-	struct list_head origin_free_list = &(pool->free_lists[page->order]);//原始位置
-	struct list_head merge_free_list = &(pool->free_lists[page->order + 1]);//目标位置  
+	struct list_head *origin_free_list = &(pool->free_lists[page->order]);//原始位置
+	struct list_head *merge_free_list = &(pool->free_lists[page->order + 1]);//目标位置  
 
 	origin_free_list->nr_free -= 2;//减掉自身和buddy
-	list_del(page->node);
-	list_del(buddy_page->node);
+	list_del(&page->node);
+	list_del(&buddy_page->node);
 
 	merge_free_list->nr_free ++;
 
 	/* Init new merge one */
-	merge_page->order = page->order + 1;
-	merge_page->allocated = 0;
-	merge_page->node = merge_free_list;
-	list_add(&merge_page->node, &merge_free_list->free_list);
+	merged_page->order = page->order + 1;
+	merged_page->allocated = 0;
+	mergedpage->node = merge_free_list;
+	list_add(&merged_page->node, &merge_free_list->free_list);
 
 	/* Deal with the recurse */
-	return merge_page(pool,merge_page);
+	return merge_page(pool,merged_page);
 	// </lab2>
 }
 
