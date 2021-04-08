@@ -144,12 +144,13 @@ struct page *buddy_get_pages(struct phys_mem_pool *pool, u64 order)
 	/* Init page */
 	struct page *page = NULL;
 
-	page->order = order;
+	
 
 	//存在合适的块 直接分配
 	if(pool->free_lists[order].nr_free != 0) {
 		struct list_head *list_node = pool->free_lists[order].free_list.next;//指针指向所需的块的下一个
 		page = list_entry(list_node,struct page,node); //使用pointer应用到对象（page）
+		page->order = order;
 		page->allocated = 1;
 		
 		pool->free_lists[order].nr_free --;//number参数-1
@@ -177,6 +178,7 @@ struct page *buddy_get_pages(struct phys_mem_pool *pool, u64 order)
 
 		struct free_list *page_order_free_list = &(pool->free_lists[page->order]);
 		page_order_free_list->nr_free--;//占用一个
+		page->order = order;
 		page->allocated = 1;
 
 		list_del(list_node);//释放节点
