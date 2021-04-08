@@ -108,6 +108,7 @@ void test_buddy(void)
 	/* should have 0 free pages */
 	nget = buddy_num_free_page(&global_mem);
 	ncheck = 0;
+	printf("nget is %ld",nget);
 	mu_check(nget == ncheck);
 
 	/* free all pages */
