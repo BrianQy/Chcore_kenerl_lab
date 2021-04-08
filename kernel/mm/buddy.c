@@ -144,8 +144,6 @@ struct page *buddy_get_pages(struct phys_mem_pool *pool, u64 order)
 	/* Init page */
 	struct page *page = NULL;
 
-	
-
 	//存在合适的块 直接分配
 	if(pool->free_lists[order].nr_free != 0) {
 		struct list_head *list_node = pool->free_lists[order].free_list.next;//指针指向所需的块的下一个
@@ -153,17 +151,18 @@ struct page *buddy_get_pages(struct phys_mem_pool *pool, u64 order)
 		page->order = order;
 		page->allocated = 1;
 		
-		pool->free_lists[order].nr_free --;//number参数-1
+		pool->free_lists[order].nr_free--;//number参数-1
 		list_del(list_node);//释放节点
 	}else {//不存在合适的块 需要由更大的分裂
 		u64 big_order = order ;
-		while(pool->free_lists[big_order].nr_free <=0 && big_order > BUDDY_MAX_ORDER ){//找更大的存在freeblock的order
+		while(pool->free_lists[big_order].nr_free <=0 ){//找更大的存在freeblock的order
 			big_order ++;
+			if( big_order >= BUDDY_MAX_ORDER ){
+				return NULL;
+			}
 		}
 		
-		if( big_order >= BUDDY_MAX_ORDER ){
-			return NULL;
-		}
+		
 		/* Get the mem we need to create a temp page*/
 		struct page *splited_page = NULL;
 		struct list_head *list_node = pool->free_lists[big_order].free_list.next;//指针指向所需的块的下一个
@@ -209,6 +208,13 @@ static struct page *merge_page(struct phys_mem_pool *pool, struct page *page)
 	if(buddy_page->allocated || buddy_page == NULL || buddy_page->order != page->order){//如果兄弟节点之间order不同 或 找不到buddy
 		return page;
 	}
+
+	if((u64)page > (u64)buddy_page){ //let page to be the former chunk, buudy the latter
+		struct page *tmp = page;
+		page = buddy_page;
+		buddy_page = tmp;
+	}
+
 	/* Deal with the process */
 	struct free_list* origin_free_list = &(pool->free_lists[page->order]);//原始位置
 	struct free_list* merge_free_list = &(pool->free_lists[page->order + 1]);//目标位置  
@@ -243,8 +249,8 @@ void buddy_free_pages(struct phys_mem_pool *pool, struct page *page)
 {
 	// <lab2>
 	page->allocated = 0;
-	list_add(&page->node, &(pool->free_lists[page->order].free_list));
 	pool->free_lists[page->order].nr_free++;
+	list_add(&page->node, &(pool->free_lists[page->order].free_list));
 	page = merge_page(pool,page);
 	// </lab2>
 }
